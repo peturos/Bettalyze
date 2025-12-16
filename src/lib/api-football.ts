@@ -32,3 +32,17 @@ export async function getOdds(fixtureId: number) {
 
     return res.json();
 }
+
+export async function getStandings(leagueId: number = 39, season: number = 2024) {
+    // Note: Season might need to be dynamic, assuming 2024 for 24/25 season
+    const res = await fetch(`${BASE_URL}/standings?league=${leagueId}&season=${season}`, {
+        headers: HEADERS,
+        next: { revalidate: 3600 }
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch standings');
+    }
+
+    return res.json();
+}
