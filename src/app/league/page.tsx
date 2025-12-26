@@ -1,4 +1,4 @@
-import { getStandings } from '@/lib/api-football';
+import { getStandings } from '@/lib/db';
 import styles from './page.module.css';
 
 export const revalidate = 3600; // Cache for 1 hour
@@ -7,7 +7,8 @@ export default async function LeaguePage() {
     let standings = [];
     try {
         const data = await getStandings(39, 2024);
-        if (data.response && data.response.length > 0) {
+        // Check if data is valid and has the expected structure from the JSON blob
+        if (data && data.response && data.response.length > 0) {
             standings = data.response[0].league.standings[0];
         }
     } catch (error) {

@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabaseAdmin as supabase } from './supabase';
 import { Database } from '@/types/database';
 
 export type Match = Database['public']['Tables']['matches']['Row'];
@@ -31,19 +31,15 @@ export async function getTeams() {
 }
 
 export async function getPlayers() {
-    // We don't have a dedicated players table, so we get them from match_players or top scorers
-    // For now, let's fetch from match_players but limit significantly as it's a huge table
     const { data, error } = await supabase
         .from('match_players')
         .select('player_id, player_name, team_name, minutes_played, started')
-        .limit(100); // Just a sample for the first version
+        .limit(100);
 
     if (error) {
         console.error('Error fetching players:', error);
         return [];
     }
-
-    // In a real scenario, we'd want a 'players' table or a view for 'player_stats_season'
     return data;
 }
 
@@ -61,4 +57,66 @@ export async function getUpcomingFixtures() {
     }
 
     return data;
+}
+
+export async function getStandings(leagueId: number = 39, season: number = 2025) {
+    // Fetch from our local standings_raw table
+    const { data, error } = await supabase
+        .from('standings_raw')
+        .select('json')
+        .eq('league_id', leagueId)
+        .eq('season', season)
+        .order('fetched_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    if (error) {
+        console.error('Error fetching standings from DB:', error);
+        return null;
+    }
+
+    // The 'json' column stores the array directly: [ { league: ... } ]
+    // So we just return the first item's league data
+    if (Array.isArray(data?.json) && data.json.length > 0) {
+        return {
+            response: [
+                data.json[0]
+            ]
+        };
+    }
+
+    return { response: [] };
+}
+
+export async function getTopScorers() {
+    // Count goals from match_events
+    const { data, error } = await supabase
+        .from('match_events')
+        .select('player_id, player_name, team_name, type, detail')
+        .eq('type', 'Goal');
+
+    if (error) {
+        console.error('Error fetching scorers:', error);
+        return [];
+    }
+
+    const scorers = new Map<number, { id: number; name: string; team: string; goals: number }>();
+
+    data?.forEach((event: any) => {
+        if (event.detail === 'Own Goal') return;
+        if (!event.player_id || !event.player_name) return;
+
+        const current = scorers.get(event.player_id) || {
+            id: event.player_id,
+            name: event.player_name,
+            team: event.team_name || 'Unknown',
+            goals: 0
+        };
+        current.goals++;
+        scorers.set(event.player_id, current);
+    });
+
+    return Array.from(scorers.values())
+        .sort((a, b) => b.goals - a.goals)
+        .slice(0, 20); // Top 20
 }

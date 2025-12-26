@@ -1,0 +1,95 @@
+.container {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 48px;
+}
+
+.title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+
+.accent {
+    color: var(--primary);
+}
+
+.subtitle {
+    color: var(--muted);
+    font-size: 1.1rem;
+}
+
+.tableWrapper {
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1rem;
+    text-align: left;
+}
+
+.table th {
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.table td {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.rank {
+    font-weight: 700;
+    color: var(--muted);
+    width: 60px;
+    text-align: center;
+}
+
+.playerCell {
+    display: flex;
+    flex-direction: column;
+}
+
+.playerName {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.teamName {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.goals {
+    font-weight: 800;
+    color: var(--primary);
+    font-size: 1.25rem;
+    text-align: center;
+}
