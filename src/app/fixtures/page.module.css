@@ -1,0 +1,114 @@
+.container {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 48px;
+}
+
+.title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+
+.accent {
+    color: var(--primary);
+}
+
+.subtitle {
+    color: var(--muted);
+    font-size: 1.1rem;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.card {
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    border-color: var(--primary);
+    transform: translateX(4px);
+}
+
+.date {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    width: 120px;
+    text-transform: uppercase;
+}
+
+.match {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+}
+
+.team {
+    font-weight: 700;
+    font-size: 1.2rem;
+    width: 200px;
+}
+
+.team.home {
+    text-align: right;
+}
+
+.team.away {
+    text-align: left;
+}
+
+.vs {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.odds {
+    display: flex;
+    gap: 12px;
+}
+
+.oddButton {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    color: var(--foreground);
+    font-weight: 600;
+    min-width: 60px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.oddButton:hover {
+    background: var(--primary);
+    color: black;
+    border-color: var(--primary);
+}
+
+.empty {
+    text-align: center;
+    padding: 40px;
+    background: var(--secondary);
+    border-radius: var(--radius-md);
+    color: var(--muted);
+}

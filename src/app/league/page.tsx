@@ -1,4 +1,4 @@
-import { getStandings } from '@/lib/db';
+import { getStandings, CURRENT_SEASON } from '@/lib/db';
 import styles from './page.module.css';
 
 export const revalidate = 3600; // Cache for 1 hour
@@ -6,7 +6,7 @@ export const revalidate = 3600; // Cache for 1 hour
 export default async function LeaguePage() {
     let standings = [];
     try {
-        const data = await getStandings(39, 2024);
+        const data = await getStandings(39, CURRENT_SEASON);
         // Check if data is valid and has the expected structure from the JSON blob
         if (data && data.response && data.response.length > 0) {
             standings = data.response[0].league.standings[0];
