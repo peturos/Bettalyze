@@ -20,33 +20,15 @@ export default function ChatInterface() {
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Persistence: Load messages on mount
+    // Set initial welcome message
     useEffect(() => {
-        const saved = localStorage.getItem('wizardinho-chat');
-        if (saved) {
-            try {
-                // Parse dates back to objects if needed, but for display string is fine.
-                // However, timestamp is typically Date. Let's just restore structure.
-                setMessages(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to parse history", e);
-            }
-        } else {
-            setMessages([{
-                id: '1',
-                role: 'assistant',
-                content: "Hello! I'm Wizardinho 🧙‍♂️. Ask me anything about Premier League stats, player injuries, or betting values!",
-                timestamp: new Date()
-            }]);
-        }
+        setMessages([{
+            id: '1',
+            role: 'assistant',
+            content: "Hello! I'm Wizardinho 🧙‍♂️. Ask me anything about Premier League stats, player injuries, or betting values!",
+            timestamp: new Date()
+        }]);
     }, []);
-
-    // Persistence: Save messages on update
-    useEffect(() => {
-        if (messages.length > 0) {
-            localStorage.setItem('wizardinho-chat', JSON.stringify(messages));
-        }
-    }, [messages]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

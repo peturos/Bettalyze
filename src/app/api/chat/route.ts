@@ -1,73 +1,45 @@
-
+import { streamText, createTextStreamResponse, tool } from 'ai';
 import { createVercelTools } from '@/lib/runtime_tools';
-import { tavily } from '@tavily/core';
-import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { NextResponse } from 'next/server';
 
-const tv = new tavily({ apiKey: process.env.TAVILY_API_KEY });
-
-// Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
     try {
         const { messages } = await req.json();
+        const { z } = await import('zod');
+        console.log("RUNTIME ZOD VERSION:", (z as any).version);
 
-        // 1. Generate Schema-Driven Tools
-        const dbTools = createVercelTools();
-
-        // 2. Setup External Search Tool (since dbTools had a placeholder)
-        const allTools = {
-            ...dbTools,
-            search_web: {
-                description: 'Search the live web for real-time info not in the database.',
-                parameters: z.object({
-                    query: z.string().describe('The search query')
-                }),
-                execute: async ({ query }: { query: string }) => {
-                    console.log(`[Search] ${query}`);
-                    try {
-                        const context = await tv.search(query, {
-                            searchDepth: "basic",
-                            maxResults: 5
-                        });
-                        return context.results.map((r: any) => `${r.title}: ${r.content} (${r.url})`).join('\n\n');
-                    } catch (err: any) {
-                        return "Use your internal knowledge. Search failed. Error: " + err.message;
-                    }
-                }
+        // 2. LOAD YOUR TOOLS (Internal Marker Hack)
+        const dbTools = {
+            ping: {
+                description: "Simple ping tool",
+                parameters: {
+                    _type: 'zod-schema',
+                    schema: z.object({
+                        message: z.string()
+                    })
+                } as any,
+                execute: async ({ message }: { message: string }) => `Pong: ${message}`
             }
         };
 
-        const result = streamText({
+        const { generateText } = await import('ai');
+
+        // 3. RUN THE CHAT
+        const result = await generateText({
             model: openai('gpt-4o'),
             messages,
-            system: `You are Wizardinho 🧙‍♂️⚽, the ultimate Premier League betting assistant.
+            system: `You are a test assistant. Use the 'ping' tool for any greeting.`,
+            tools: dbTools,
+            maxSteps: 5,
+        } as any);
 
-CONTEXT PACK (Source of Truth):
-- You have access to a LIVE database of player stats, odds, and trends.
-- Use 'get_player_briefing' for general player checks to see their recent form.
-- Use 'get_player_vs_team' for historical matchups.
-- Use 'get_league_leaders' to find top performers.
-- Use 'calculate_kelly' for betting stakes.
-- Use 'search_web' ONLY for news/injuries/weather not in DB.
+        return NextResponse.json(result);
 
-RESPONSE RULES:
-1. Always cite the view/tool you used.
-2. Be concise but tactical.
-3. If data is missing (e.g. empty array), say "I don't have data for that specific query."
-`,
-            tools: allTools,
-            toolChoice: 'auto',
-            async onFinish({ text, toolCalls, toolResults, usage, finishReason }) {
-                console.log("[Turn Complete]", { usage, finishReason, toolsUsed: toolCalls?.map(TC => TC.toolName) });
-            },
-        });
-
-        return result.toDataStreamResponse();
-    } catch (error) {
+    } catch (error: any) {
         console.error("Chat Error:", error);
-        return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
