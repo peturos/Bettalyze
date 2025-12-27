@@ -6,25 +6,18 @@ const supabaseServiceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
 
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
-async function inspectTeamStats() {
-    console.log('--- Inspecting Match Team Stats ---')
+async function inspectPlayerStats() {
+    console.log('--- Inspecting Player Stats JSON ---')
 
-    const { data, error } = await supabase
-        .from('match_team_stats')
-        .select('*')
+    const { data } = await supabase
+        .from('match_player_stats')
+        .select('player_name, stats')
         .limit(1)
 
-    if (error) {
-        console.error('Error:', error.message)
-        return
-    }
-
     if (data && data.length > 0) {
-        console.log('Sample Row Keys:', Object.keys(data[0]))
-        console.log('Sample Row:', JSON.stringify(data[0], null, 2))
-    } else {
-        console.log('No data found in match_team_stats')
+        console.log(`Player: ${data[0].player_name}`);
+        console.log(JSON.stringify(data[0].stats, null, 2));
     }
 }
 
-inspectTeamStats()
+inspectPlayerStats()

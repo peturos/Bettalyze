@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import styles from './ChatInterface.module.css';
 import { Send, Bot, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
     id: string;
@@ -88,7 +90,20 @@ export default function ChatInterface() {
                             {msg.role === 'assistant' ? <Bot size={14} /> : <User size={14} />}
                             {msg.role === 'assistant' ? 'Wizardinho' : 'You'}
                         </div>
-                        {msg.content}
+                        <div className={styles.markdownContent}>
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    table: ({ node, ...props }) => (
+                                        <div className={styles.tableWrapper}>
+                                            <table {...props} />
+                                        </div>
+                                    )
+                                }}
+                            >
+                                {msg.content}
+                            </ReactMarkdown>
+                        </div>
                     </div>
                 ))}
                 {loading && (
