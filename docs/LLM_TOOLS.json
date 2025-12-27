@@ -1,0 +1,138 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_player_briefing",
+      "description": "Get a general overview of a player (Goals, Assists, xG, xA, Shots, Key Passes).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "playerName": {
+            "type": "string",
+            "description": "Name of the player, e.g. 'Palmer', 'Salah'"
+          }
+        },
+        "required": [
+          "playerName"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_player_vs_team",
+      "description": "Get a player's historical performance against a specific team.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "playerName": {
+            "type": "string",
+            "description": "Name of the player"
+          },
+          "opponentTeam": {
+            "type": "string",
+            "description": "Name of the opponent team"
+          }
+        },
+        "required": [
+          "playerName",
+          "opponentTeam"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_trend_spotter",
+      "description": "Find hot/cold streaks for teams or players.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "teams",
+              "players"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_league_leaders",
+      "description": "Get the top players for a specific stat.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "stat": {
+            "type": "string",
+            "enum": [
+              "goals",
+              "assists",
+              "rating",
+              "shots",
+              "key_passes"
+            ]
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "stat"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calculate_kelly",
+      "description": "Calculate optimal bet size using Kelly Criterion.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "winProbabilityPercentage": {
+            "type": "number"
+          },
+          "decimalOdds": {
+            "type": "number"
+          },
+          "bankroll": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "winProbabilityPercentage",
+          "decimalOdds"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_web",
+      "description": "Search the web for general info (Injuries, News, Weather) that isn't in the database.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  }
+]

@@ -100,7 +100,17 @@ export async function getPlayerBriefing(playerName: string, limit: number = 5) {
         total_assists: data.reduce((sum, row) => sum + row.assists, 0),
         // Calculate Avg Rating (ignoring 'N/A')
         avg_rating: (data.reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / data.filter(r => r.rating !== 'N/A').length).toFixed(2),
-        recent_form: data.map(row => `${new Date(row.kickoff).toLocaleDateString()} vs ${row.opponent} (${row.minutes}mins): ${row.goals}G, ${row.assists}A, ${row.rating} Rating`)
+        // Return raw object array for the LLM to analyze
+        recent_form: data.map(row => ({
+            date: new Date(row.kickoff).toLocaleDateString(),
+            opponent: row.opponent,
+            minutes: row.minutes,
+            goals: row.goals,
+            assists: row.assists,
+            rating: row.rating,
+            shots: row.shots,
+            key_passes: row.key_passes
+        }))
     };
 
     return stats;
@@ -159,63 +169,83 @@ export async function getTeamBriefing(teamName: string) {
 
 // "Safety Net" Tool
 export async function searchWeb(query: string) {
-    // In a real production app, this would call TAVILY_API_KEY
-    // For this demo, we return a system message guiding the LLM
-    console.log(`[Mock Search] Searching for: ${query}`);
+    const apiKey = process.env.TAVILY_API_KEY;
 
-    return {
-        system_note: "Bettalyze_Search_Agent: Access to live web is currently restricted in this environment.",
-        guidance: "Please answer based on your internal knowledge if possible, or explain that you focus on Stats/Odds/Rosters. Do NOT hallucinate specific weather or breaking news."
-    };
+    if (!apiKey) {
+        console.log(`[Mock Search] Searching for: ${query} (No API Key)`);
+        return {
+            system_note: "Bettalyze_Search_Agent: Service Not Configured.",
+            guidance: "The user is asking for live web information, but no search provider (e.g. Tavily) is currently connected to the API Key. Please Explain to the user that Wizardinho currently runs on the OpenAI API alone, which does not have built-in browsing capabilities like ChatGPT. You can only answer questions based on the static database (Stats, Odds, Rosters)."
+        };
+    }
+
+    try {
+        console.log(`[Tavily Search] Searching for: ${query}`);
+        const response = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                api_key: apiKey,
+                query: query,
+                search_depth: "basic",
+                include_answer: true,
+                max_results: 5
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Tavily API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return {
+            results: data.results.map((r: any) => ({
+                title: r.title,
+                url: r.url,
+                content: r.content
+            })),
+            answer: data.answer
+        };
+
+    } catch (error: any) {
+        console.error("Search Error:", error);
+        return {
+            system_note: "Search Provider Error",
+            error: error.message
+        };
+    }
 }
 
 // Cluster B: The Analyst (Head-to-Head & Form)
+// Cluster B: The Analyst (Head-to-Head & Form)
 export async function getTeamForm(teamName: string, limit: number = 5) {
-    // 1. Find the team ID (fuzzy search)
-    const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('team_id, name')
-        .ilike('name', `%${teamName}%`)
-        .limit(1)
-        .single();
-
-    if (teamError || !teamData) {
-        console.error(`Error finding team ${teamName}:`, teamError?.message);
-        return null;
-    }
-
-    // 2. Get Last N Matches
-    const { data: matches, error: matchError } = await supabase
-        .from('matches')
+    // Use v_match_history (Normalized View) to find matches directly
+    const { data: matches, error } = await supabase
+        .from('v_match_history')
         .select('*')
-        .or(`home_team_id.eq.${teamData.team_id},away_team_id.eq.${teamData.team_id}`)
-        .in('status', ['FT', 'AET', 'PEN']) // Completed matches only
+        .ilike('team_name', `%${teamName}%`)
         .order('kickoff', { ascending: false })
         .limit(limit);
 
-    if (matchError || !matches) {
-        console.error(`Error fetching form for ${teamName}:`, matchError?.message);
+    if (error || !matches || matches.length === 0) {
+        console.error(`Error fetching form for ${teamName}:`, error?.message);
         return null;
     }
 
-    return {
-        team: teamData.name,
-        recent_matches: matches.map(m => {
-            const isHome = m.home_team_id === teamData.team_id;
-            const opponent = isHome ? m.away_team_name : m.home_team_name;
-            const score = isHome ? `${m.home_score}-${m.away_score}` : `${m.away_score}-${m.home_score}`; // Team score first
-            const result = isHome
-                ? (m.home_score > m.away_score ? 'W' : (m.home_score < m.away_score ? 'L' : 'D'))
-                : (m.away_score > m.home_score ? 'W' : (m.away_score < m.home_score ? 'L' : 'D'));
+    const matchedTeamName = matches[0].team_name;
 
-            return {
-                date: new Date(m.kickoff).toLocaleDateString(),
-                opponent: opponent,
-                score: score,
-                result: result,
-                competition: "Premier League" // Assuming all matches in DB are PL for now
-            };
-        })
+    return {
+        team: matchedTeamName,
+        recent_matches: matches.map(m => ({
+            date: new Date(m.kickoff).toLocaleDateString(),
+            opponent: m.opponent_name,
+            score: `${m.team_score}-${m.opponent_score}`,
+            result: m.result,
+            competition: "Premier League"
+        }))
     };
 }
 
@@ -248,5 +278,175 @@ export async function getHeadToHead(teamA: string, teamB: string, limit: number 
             score: `${m.team_score}-${m.opponent_score}`,
             winner: m.result === 'W' ? teamAName : (m.result === 'L' ? teamBName : 'Draw')
         }))
+    };
+}
+// Cluster G: The Intelligence Engine (Deep Analysis tools)
+
+export async function comparePlayers(playerA: string, playerB: string) {
+    // Helper to fetch and normalize
+    const getStats = async (name: string) => {
+        const briefed = await getPlayerBriefing(name, 100); // Get last 100 games (basically season)
+        if (!briefed) return null;
+
+        const minutes = briefed.recent_form.reduce((sum, r) => sum + r.minutes, 0);
+        const p90_factor = minutes / 90;
+
+        return {
+            name: briefed.name,
+            team: briefed.team,
+            minutes,
+            goals: briefed.total_goals,
+            assists: briefed.total_assists,
+            goals_p90: (briefed.total_goals / p90_factor).toFixed(2),
+            assists_p90: (briefed.total_assists / p90_factor).toFixed(2),
+            shots_p90: (briefed.recent_form.reduce((s, r) => s + r.shots, 0) / p90_factor).toFixed(2),
+            key_passes_p90: (briefed.recent_form.reduce((s, r) => s + r.key_passes, 0) / p90_factor).toFixed(2),
+            avg_rating: briefed.avg_rating
+        };
+    };
+
+    const [statsA, statsB] = await Promise.all([getStats(playerA), getStats(playerB)]);
+
+    if (!statsA || !statsB) return null;
+
+    return {
+        comparison_title: `${statsA.name} vs ${statsB.name}`,
+        player_a: statsA,
+        player_b: statsB,
+        verdict: Number(statsA.avg_rating) > Number(statsB.avg_rating) ? `${statsA.name} has the higher average rating.` : `${statsB.name} has the higher average rating.`
+    };
+}
+
+export async function getTrendSpotter(type: 'teams' | 'players') {
+    if (type === 'teams') {
+        const { data, error } = await supabase
+            .from('v_team_trends')
+            .select('*')
+            .limit(10);
+
+        if (error) {
+            console.error("Trend Error:", error);
+            return [];
+        }
+        return data;
+    } else {
+        const { data, error } = await supabase
+            .from('v_player_recent_form')
+            .select('*')
+            .limit(10);
+
+        if (error) {
+            console.error("Trend Error:", error);
+            return [];
+        }
+        return data;
+    }
+}
+
+export async function analyzeMatchup(homeTeam: string, awayTeam: string) {
+    // 1. Parallel Fetch of all data points
+    const [h2h, homeForm, awayForm, justice] = await Promise.all([
+        getHeadToHead(homeTeam, awayTeam),
+        getTeamForm(homeTeam),
+        getTeamForm(awayTeam),
+        getJusticeMetrics('unlucky', 20) // Get everyone to check status
+    ]);
+
+    // 2. Extract Luck Status
+    const findLuck = (team: string) => {
+        const t = justice.find((j: any) => j.team.includes(team));
+        return t ? `${t.verdict} (Luck Score: ${t.Luck_Score})` : "performance matches expected metrics";
+    };
+
+    return {
+        matchup: `${homeTeam} vs ${awayTeam}`,
+        analysis_components: {
+            head_to_head_summary: h2h?.summary || "No recent history",
+            home_team: {
+                name: homeTeam,
+                recent_form: homeForm?.recent_matches?.map(m => m.result).join('-') || 'N/A',
+                justice_status: findLuck(homeTeam)
+            },
+            away_team: {
+                name: awayTeam,
+                recent_form: awayForm?.recent_matches?.map(m => m.result).join('-') || 'N/A',
+                justice_status: findLuck(awayTeam)
+            }
+        },
+        ai_guidance: "Synthesize this into a preview. Weigh current form vs historical H2H. Note if any team is 'Unlucky' as they might be due a positive regression."
+    };
+}
+
+// Cluster H: The Strategist (Tactics & Betting)
+
+export async function getPlayerVsTeam(playerName: string, opponentTeam: string) {
+    // 1. Fetch matches where player faced this opponent
+    const { data, error } = await supabase
+        .from('v_player_stats_cleaned')
+        .select('*')
+        .ilike('player_name', `%${playerName}%`)
+        .ilike('opponent', `%${opponentTeam}%`)
+        .order('kickoff', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+        console.log(`No history found for ${playerName} vs ${opponentTeam}`);
+        return null;
+    }
+
+    // 2. Aggregate Stats
+    const totalGoals = data.reduce((sum, row) => sum + row.goals, 0);
+    const totalAssists = data.reduce((sum, row) => sum + row.assists, 0);
+    const ratings = data.filter(r => r.rating !== 'N/A').map(r => Number(r.rating));
+    const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2) : 'N/A';
+
+    return {
+        summary: `History: ${playerName} vs ${opponentTeam}`,
+        matches_played: data.length,
+        total_goals: totalGoals,
+        total_assists: totalAssists,
+        avg_rating: avgRating,
+        history: data.map(m => ({
+            date: new Date(m.kickoff).toLocaleDateString(),
+            result: `${m.home_team_name === m.team_name ? 'Home' : 'Away'} vs ${m.opponent}`,
+            stats: `${m.goals}G, ${m.assists}A, Rating: ${m.rating}`
+        }))
+    };
+}
+
+export async function getLeagueLeaders(stat: 'goals' | 'assists' | 'rating' | 'shots' | 'key_passes', limit: number = 10) {
+    const { data, error } = await supabase
+        .from('v_season_leaderboard')
+        .select('*')
+        .order(stat, { ascending: false })
+        .limit(limit);
+
+    if (error) {
+        console.error("Leaderboard Error:", error);
+        return [];
+    }
+
+    return data;
+}
+
+export async function calculateKelly(winProbabilityPercentage: number, decimalOdds: number, bankroll: number = 1000) {
+    const p = winProbabilityPercentage / 100;
+    const b = decimalOdds - 1;
+    const q = 1 - p;
+
+    const f = (p * b - q) / b;
+    const stakePercentage = (f * 100).toFixed(2);
+    const stakeAmount = (f * bankroll).toFixed(2);
+
+    return {
+        inputs: {
+            win_prob: `${winProbabilityPercentage}%`,
+            odds: decimalOdds,
+            bankroll: `$${bankroll}`
+        },
+        kelly_fraction: f > 0 ? f.toFixed(4) : 0,
+        recommendation: f > 0
+            ? `Bet ${stakePercentage}% of bankroll ($${stakeAmount})`
+            : "Do not bet (Negative Edge)",
+        explanation: "The Kelly Criterion calculates the optimal bet size to maximize long-term growth while avoiding ruin."
     };
 }

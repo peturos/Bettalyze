@@ -1,0 +1,115 @@
+[
+  {
+    "id": "get_player_briefing",
+    "description": "Get a general overview of a player (Goals, Assists, xG, xA, Shots, Key Passes).",
+    "view": "v_player_stats_cleaned",
+    "query_template": "SELECT * FROM v_player_stats_cleaned WHERE player_name ILIKE :playerName ORDER BY kickoff DESC LIMIT 10",
+    "parameters": [
+      {
+        "name": "playerName",
+        "type": "string",
+        "description": "Name of the player, e.g. 'Palmer', 'Salah'",
+        "required": true
+      }
+    ],
+    "type": "vdb"
+  },
+  {
+    "id": "get_player_vs_team",
+    "description": "Get a player's historical performance against a specific team.",
+    "view": "v_player_stats_cleaned",
+    "query_template": "SELECT * FROM v_player_stats_cleaned WHERE player_name ILIKE :playerName AND opponent ILIKE :opponentTeam ORDER BY kickoff DESC",
+    "parameters": [
+      {
+        "name": "playerName",
+        "type": "string",
+        "description": "Name of the player",
+        "required": true
+      },
+      {
+        "name": "opponentTeam",
+        "type": "string",
+        "description": "Name of the opponent team",
+        "required": true
+      }
+    ],
+    "type": "vdb"
+  },
+  {
+    "id": "get_trend_spotter",
+    "description": "Find hot/cold streaks for teams or players.",
+    "view": "v_team_trends | v_player_recent_form",
+    "parameters": [
+      {
+        "name": "type",
+        "type": "string",
+        "enum": [
+          "teams",
+          "players"
+        ],
+        "required": true
+      }
+    ],
+    "type": "vdb"
+  },
+  {
+    "id": "get_league_leaders",
+    "description": "Get the top players for a specific stat.",
+    "view": "v_season_leaderboard",
+    "query_template": "SELECT * FROM v_season_leaderboard ORDER BY :stat DESC LIMIT :limit",
+    "parameters": [
+      {
+        "name": "stat",
+        "type": "string",
+        "enum": [
+          "goals",
+          "assists",
+          "rating",
+          "shots",
+          "key_passes"
+        ],
+        "required": true
+      },
+      {
+        "name": "limit",
+        "type": "number",
+        "default": 10
+      }
+    ],
+    "type": "vdb"
+  },
+  {
+    "id": "calculate_kelly",
+    "description": "Calculate optimal bet size using Kelly Criterion.",
+    "parameters": [
+      {
+        "name": "winProbabilityPercentage",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "decimalOdds",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "bankroll",
+        "type": "number",
+        "default": 1000
+      }
+    ],
+    "type": "utility"
+  },
+  {
+    "id": "search_web",
+    "description": "Search the web for general info (Injuries, News, Weather) that isn't in the database.",
+    "parameters": [
+      {
+        "name": "query",
+        "type": "string",
+        "required": true
+      }
+    ],
+    "type": "external"
+  }
+]

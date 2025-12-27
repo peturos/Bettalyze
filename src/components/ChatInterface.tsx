@@ -11,20 +11,42 @@ interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    toolsUsed?: string[];
 }
 
 export default function ChatInterface() {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: '1',
-            role: 'assistant',
-            content: "Hello! I'm Wizardinho 🧙‍♂️. Ask me anything about Premier League stats, player injuries, or betting values!",
-            timestamp: new Date()
-        }
-    ]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Persistence: Load messages on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('wizardinho-chat');
+        if (saved) {
+            try {
+                // Parse dates back to objects if needed, but for display string is fine.
+                // However, timestamp is typically Date. Let's just restore structure.
+                setMessages(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse history", e);
+            }
+        } else {
+            setMessages([{
+                id: '1',
+                role: 'assistant',
+                content: "Hello! I'm Wizardinho 🧙‍♂️. Ask me anything about Premier League stats, player injuries, or betting values!",
+                timestamp: new Date()
+            }]);
+        }
+    }, []);
+
+    // Persistence: Save messages on update
+    useEffect(() => {
+        if (messages.length > 0) {
+            localStorage.setItem('wizardinho-chat', JSON.stringify(messages));
+        }
+    }, [messages]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,7 +67,8 @@ export default function ChatInterface() {
             timestamp: new Date()
         };
 
-        setMessages(prev => [...prev, userMsg]);
+        const newMessages = [...messages, userMsg];
+        setMessages(newMessages);
         setInput('');
         setLoading(true);
 
@@ -53,7 +76,7 @@ export default function ChatInterface() {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })) })
+                body: JSON.stringify({ messages: newMessages.map(m => ({ role: m.role, content: m.content })) })
             });
 
             if (!response.ok) throw new Error('Failed to fetch response');
@@ -64,6 +87,7 @@ export default function ChatInterface() {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: data.reply,
+                toolsUsed: data.toolsUsed,
                 timestamp: new Date()
             };
             setMessages(prev => [...prev, botMsg]);
@@ -98,12 +122,44 @@ export default function ChatInterface() {
                                         <div className={styles.tableWrapper}>
                                             <table {...props} />
                                         </div>
+                                    ),
+                                    a: ({ node, ...props }) => (
+                                        <a
+                                            {...props}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ color: '#60a5fa', textDecoration: 'underline' }}
+                                        />
                                     )
                                 }}
                             >
                                 {msg.content}
                             </ReactMarkdown>
                         </div>
+                        {msg.toolsUsed && msg.toolsUsed.length > 0 && (
+                            <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                {msg.toolsUsed.map((tool, i) => {
+                                    const isSearch = tool === 'search_web';
+                                    const badgeColor = isSearch ? 'rgba(59, 130, 246, 0.2)' : 'rgba(34, 197, 94, 0.2)'; // Blue or Green
+                                    const textColor = isSearch ? '#60a5fa' : '#4ade80';
+
+                                    return (
+                                        <span key={i} style={{
+                                            fontSize: '0.7rem',
+                                            backgroundColor: badgeColor,
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            color: textColor,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            {isSearch ? '🌍' : '⚡'} Used: {tool}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 ))}
                 {loading && (
@@ -121,7 +177,7 @@ export default function ChatInterface() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                 />
-                <button type="button" className={styles.sendButton} onClick={handleSubmit} disabled={loading}>
+                <button type="submit" className={styles.sendButton} disabled={loading}>
                     <Send size={20} />
                 </button>
             </form>

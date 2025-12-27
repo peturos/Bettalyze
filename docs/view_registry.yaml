@@ -1,0 +1,73 @@
+# View/Intent Registry
+# This file is the Source of Truth for Wizardinho's capabilities.
+# Any tool exposed to the LLM must be defined here.
+
+intents:
+  - id: "get_player_briefing"
+    description: "Get a general overview of a player (Goals, Assists, xG, xA, Shots, Key Passes)."
+    view: "v_player_stats_cleaned"
+    parameters:
+      - name: "playerName"
+        type: "string"
+        description: "Name of the player, e.g. 'Palmer', 'Salah'"
+        required: true
+    query_template: "SELECT * FROM v_player_stats_cleaned WHERE player_name ILIKE :playerName ORDER BY kickoff DESC LIMIT 10"
+
+  - id: "get_player_vs_team"
+    description: "Get a player's historical performance against a specific team."
+    view: "v_player_stats_cleaned"
+    parameters:
+      - name: "playerName"
+        type: "string"
+        description: "Name of the player"
+        required: true
+      - name: "opponentTeam"
+        type: "string"
+        description: "Name of the opponent team"
+        required: true
+    query_template: "SELECT * FROM v_player_stats_cleaned WHERE player_name ILIKE :playerName AND opponent ILIKE :opponentTeam ORDER BY kickoff DESC"
+
+  - id: "get_trend_spotter"
+    description: "Find hot/cold streaks for teams or players."
+    view: "v_team_trends | v_player_recent_form"
+    parameters:
+      - name: "type"
+        type: "string"
+        enum: ["teams", "players"]
+        required: true
+    # Logic handled in code for this dual-view tool
+
+  - id: "get_league_leaders"
+    description: "Get the top players for a specific stat."
+    view: "v_season_leaderboard"
+    parameters:
+      - name: "stat"
+        type: "string"
+        enum: ["goals", "assists", "rating", "shots", "key_passes"]
+        required: true
+      - name: "limit"
+        type: "number"
+        default: 10
+    query_template: "SELECT * FROM v_season_leaderboard ORDER BY :stat DESC LIMIT :limit"
+
+  - id: "calculate_kelly"
+    description: "Calculate optimal bet size using Kelly Criterion."
+    type: "utility" 
+    parameters:
+      - name: "winProbabilityPercentage"
+        type: "number"
+        required: true
+      - name: "decimalOdds"
+        type: "number"
+        required: true
+      - name: "bankroll"
+        type: "number"
+        default: 1000
+
+  - id: "search_web"
+    description: "Search the web for general info (Injuries, News, Weather) that isn't in the database."
+    type: "external"
+    parameters:
+      - name: "query"
+        type: "string"
+        required: true
